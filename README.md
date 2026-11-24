@@ -21,24 +21,64 @@ Hands-on lab: build a **three-node, self-managed Kubernetes cluster** with **1 c
 | Test application | Nginx | Verifies application deployment |
 | Automation | Bash, YAML | Automates setup and defines resources |
 
-## Basic definitions
+## Kubernetes basics
 
-| Term | Simple meaning |
+**Kubernetes (K8s)** is an open-source container orchestration platform. It deploys, scales, networks and manages containerized applications.
+
+**Why Kubernetes?** It supports automatic recovery, scaling, service discovery, load balancing and rolling updates.
+
+| Concept | Simple definition |
 |---|---|
-| Cluster | A group of machines working together |
-| Node | One machine in the cluster |
-| Control plane (server) | Manages cluster state and scheduling |
-| Worker | Runs application pods |
-| Pod | Smallest deployable Kubernetes unit; contains one or more containers |
-| Deployment | Maintains a desired number of application replicas |
-| Service | Provides a stable network endpoint for pods |
+| Container | Isolated running application with its dependencies |
+| Image | Packaged template used to create containers |
+| Cluster | Group of machines managed by Kubernetes |
+| Node | Physical or virtual machine in a cluster |
+| Control plane | Manages cluster state and scheduling |
+| Worker node | Runs application workloads |
+| Pod | Smallest deployable unit; contains one or more containers |
+| ReplicaSet | Maintains a desired number of matching pods |
+| Deployment | Manages ReplicaSets and application updates |
+| Service | Stable network endpoint for a group of pods |
+| Namespace | Logical grouping of Kubernetes resources |
 | DaemonSet | Runs a pod on every eligible node |
-| CNI | Container Network Interface; standard for pod networking plugins |
-| CRI | Container Runtime Interface; connects kubelet to the runtime |
-| etcd | Stores Kubernetes cluster state |
-| Join token | Temporary credential used when joining nodes |
+| ConfigMap | Stores non-secret configuration |
+| Secret | Stores sensitive configuration; requires appropriate access and encryption controls |
+| PersistentVolume | Storage resource independent of a pod |
+| PersistentVolumeClaim | Request for persistent storage |
+| Ingress | HTTP/HTTPS routing rules; requires an Ingress controller |
+| HPA | Automatically adjusts workload replica count using metrics |
+| CNI | Interface for pod networking plugins |
+| CRI | Interface between kubelet and container runtime |
 
-[More definitions and component roles](docs/technology-stack.md)
+## Why kubeadm?
+
+**kubeadm** is an official Kubernetes bootstrapping tool that initializes a control plane and joins nodes to a cluster. It is not a container runtime or a cloud infrastructure provisioning tool.
+
+- Learn how a real multi-node Kubernetes cluster works.
+- Understand certificates, tokens, networking and control-plane components.
+- Build a self-managed cluster on EC2, virtual machines or bare metal.
+- Practice installation, administration and troubleshooting without a managed control plane.
+
+| Tool | Best use |
+|---|---|
+| kubeadm | Self-managed multi-node clusters and administration practice |
+| Minikube | Local learning and development |
+| Amazon EKS | AWS-managed Kubernetes control plane |
+
+kubeadm requires you to manage infrastructure, runtime, networking, upgrades, backups and security. This lab has one control plane and is not highly available.
+
+### How kubeadm works
+
+```mermaid
+flowchart LR
+ A[Prepare nodes] --> B[kubeadm init on server]
+ B --> C[Install CNI]
+ C --> D[Generate join command]
+ D --> E[kubeadm join on workers]
+ E --> F[kubectl verify cluster]
+```
+
+See [technology stack and component roles](docs/technology-stack.md) and [platform comparison](difference.md).
 
 ## Repository layout
 
