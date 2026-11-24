@@ -1,69 +1,22 @@
-# Quick Steps — EC2 kubeadm (1 server + 2 workers)
+# Quick execution checklist
 
-Full copy/paste commands and troubleshooting: **[README.md](README.md)**.
+Follow [README.md](README.md) for commands. This checklist is a navigation aid, not a second installation guide.
 
-| Order | Run on | Action |
+| Step | Where | Task |
 |---|---|---|
-| 1 | AWS Console | Launch **server (t3.large, 70 GiB)**, **worker1** and **worker2 (t3.medium, 50 GiB each)** with Amazon Linux 2023 and one `kubeadm.pem` key pair |
-| 2 | AWS Console | Same VPC, same subnet, same dedicated SG. SSH TCP/22 only from your IP. Inbound **All traffic from the SG itself**, never from the public internet |
-| 3 | All 3 nodes | SSH using `ssh -i kubeadm.pem ec2-user@<PUBLIC_IP>`; assign unique hostnames and working private IP resolution |
-| 4 | All 3 nodes | `dnf update`, disable swap, enable overlay/br_netfilter and IP forwarding |
-| 5 | All 3 nodes | Install **containerd**, set `SystemdCgroup = true`, enable containerd service |
-| 6 | All 3 nodes | Configure Kubernetes v1.37 RPM repo, install **kubeadm + kubelet + kubectl**, enable kubelet |
-| 7 | Server only | `sudo kubeadm init --apiserver-advertise-address=<SERVER_PRIVATE_IP> --pod-network-cidr=10.244.0.0/16 --cri-socket=unix:///run/containerd/containerd.sock` |
-| 8 | Server only | Copy `/etc/kubernetes/admin.conf` to `$HOME/.kube/config`, correct ownership |
-| 9 | Server only | Install **Flannel CNI**; do not combine CNIs |
-| 10 | Server only | Generate **fresh** command: `sudo kubeadm token create --print-join-command` |
-| 11 | Worker1 and worker2 | Run `sudo kubeadm join ...` with the **actual** output from the server |
-| 12 | Server only | Verify all **3 nodes Ready** and check system pods |
-| 13 | Server only | Deploy test Nginx workload, inspect placement and clean up |
+| 1 | AWS Console | Create three EC2 instances, same VPC/subnet/SG and key pair |
+| 2 | Workstation | Connect to each instance |
+| 3 | All nodes | Assign unique hostnames |
+| 4 | All nodes | Prepare OS, swap and networking |
+| 5 | All nodes | Install compatible containerd |
+| 6 | All nodes | Install Kubernetes components and verify versions |
+| 7 | Server | Initialize control plane and configure kubectl |
+| 8 | Server | Install Flannel |
+| 9 | Server | Generate fresh join command |
+| 10 | Both workers | Execute generated join command with sudo |
+| 11 | Server | Verify three Ready nodes and system pods |
+| 12 | Server | Apply YAML manifests, verify rollout, test HTTP |
+| 13 | As needed | Troubleshoot |
+| 14 | Server / AWS | Delete test resources and terminate lab instances |
 
-## Version checks (all nodes)
-
-Use the v1.37 RPM channel and verify containerd is a compatible 2.3.x or 2.4.x release before initialization. If the distribution runtime is older, follow the compatibility guidance in README.md before continuing.
-
-```bash
-cat /etc/os-release
-containerd --version
-kubeadm version
-kubelet --version
-kubectl version --client
-rpm -q kubeadm kubelet kubectl containerd
-```
-
-## Verification (server)
-
-```bash
-kubectl get nodes -o wide
-kubectl get pods -n kube-system
-kubectl get pods -n kube-flannel
-kubectl get pods -A -o wide
-```
-
-Expected: `server`, `worker1`, and `worker2` all report `Ready`.
-
-## Core commands (server)
-
-```bash
-# After all-node preparation detailed in README:
-sudo kubeadm init \
-  --kubernetes-version="$(kubeadm version -o short)" \
-  --apiserver-advertise-address=<SERVER_PRIVATE_IP> \
-  --pod-network-cidr=10.244.0.0/16 \
-  --cri-socket=unix:///run/containerd/containerd.sock
-
-mkdir -p "$HOME/.kube"
-sudo cp /etc/kubernetes/admin.conf "$HOME/.kube/config"
-sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
-
-kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
-sudo kubeadm token create --print-join-command
-```
-
-**Workers:** paste the resulting `kubeadm join` command with `sudo`, once on each worker.
-
-> The angle-bracket placeholders must be replaced. Never publish live join tokens. Refer to [README.md](README.md) for all required prerequisite commands and troubleshooting.
-
-## Script alternative
-
-Follow the [script-based installation in README](README.md#script-based-installation-alternative-to-manual-steps-311) and use the manifests for workload practice. Do not repeat manual initialization after using the script.
+Optional: [automated setup](docs/automation.md) replaces manual steps 3–11. Use one method only.
