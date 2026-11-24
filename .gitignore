@@ -1,0 +1,6 @@
+*.pem
+*.key
+kubeconfig
+admin.conf
+join-command.txt
+.env
