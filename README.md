@@ -203,14 +203,14 @@ From your Mac/Linux terminal (or use EC2 Instance Connect):
 
 ```bash
 chmod 400 kubeadm.pem
-ssh -i kubeadm.pem ec2-user@<SERVER_PUBLIC_IP>
+ssh -i kubeadm.pem ec2-user@SERVER_PUBLIC_IP
 # Open a SECOND terminal:
-ssh -i kubeadm.pem ec2-user@<WORKER1_PUBLIC_IP>
+ssh -i kubeadm.pem ec2-user@WORKER1_PUBLIC_IP
 # Open a THIRD terminal:
-ssh -i kubeadm.pem ec2-user@<WORKER2_PUBLIC_IP>
+ssh -i kubeadm.pem ec2-user@WORKER2_PUBLIC_IP
 ```
 
-Replace angle-bracket placeholders with actual addresses; do not paste all three SSH commands into one EC2 session.
+Replace the uppercase IP placeholders with actual addresses; do not paste all three SSH commands into one EC2 session.
 
 ## 3. Set hostnames — ALL NODES (different command on each)
 
@@ -283,6 +283,7 @@ containerd --version
 # Review the printed version against the compatibility matrix above.
 # Continue only with a compatible 2.3.x or 2.4.x runtime.
 sudo mkdir -p /etc/containerd
+sudo test ! -f /etc/containerd/config.toml || sudo cp -n /etc/containerd/config.toml /etc/containerd/config.toml.pre-kubeadm
 containerd config default | sudo tee /etc/containerd/config.toml >/dev/null
 # Change the runtime cgroup driver (works with default 1.x/2.x generated configs)
 sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
@@ -330,7 +331,12 @@ kubelet --version
 kubectl version --client
 rpm -q kubeadm kubelet kubectl
 sudo crictl --runtime-endpoint unix:///run/containerd/containerd.sock info
+for plugin in bridge loopback host-local portmap; do
+  test -x "/opt/cni/bin/$plugin" || echo "Missing CNI plugin: $plugin"
+done
 ```
+
+Stop if any plugin is missing or CRI verification fails.
 
 If containerd was installed from RPM, also run `rpm -q containerd`. An upstream binary installation will not have an RPM record.
 
@@ -339,7 +345,7 @@ If containerd was installed from RPM, also run `rpm -q containerd`. An upstream 
 Check that `hostname -I` contains the server's correct VPC **private** IPv4 address. Set it explicitly:
 
 ```bash
-SERVER_PRIVATE_IP="<SERVER_PRIVATE_IP>"
+SERVER_PRIVATE_IP="REPLACE_WITH_SERVER_PRIVATE_IP"
 sudo kubeadm init \
   --kubernetes-version="$(kubeadm version -o short)" \
   --apiserver-advertise-address="$SERVER_PRIVATE_IP" \
@@ -381,14 +387,15 @@ Example output (**example placeholders, not valid credentials**):
 ```bash
 kubeadm join <SERVER_PRIVATE_IP>:6443 \
   --token <GENERATED_TOKEN> \
-  --discovery-token-ca-cert-hash sha256:<GENERATED_HASH>
+  --discovery-token-ca-cert-hash sha256:<GENERATED_HASH> \
+  --cri-socket=unix:///run/containerd/containerd.sock
 ```
 
 Copy the **actual freshly generated** command from your server terminal. Token values expire; never commit active tokens to a public repository.
 
 ## 10. Join the cluster — WORKER1 and WORKER2 ONLY
 
-On **each worker's own terminal**, paste the command from step 9, prefixing it with `sudo`:
+On **each worker's own terminal**, paste the command from step 9, prefixing it with `sudo` and appending `--cri-socket=unix:///run/containerd/containerd.sock` if not already present:
 
 ```bash
 sudo kubeadm join <SERVER_PRIVATE_IP>:6443 \
@@ -405,6 +412,8 @@ kubectl wait --for=condition=Ready node/server node/worker1 node/worker2 --timeo
 kubectl get nodes -o wide
 kubectl get pods -n kube-system
 kubectl get pods -n kube-flannel
+kubectl rollout status daemonset/kube-flannel-ds -n kube-flannel --timeout=300s
+kubectl rollout status deployment/coredns -n kube-system --timeout=300s
 kubectl get pods -A -o wide
 ```
 
@@ -515,7 +524,7 @@ For a fresh cluster, use the [script-based guide](docs/automation.md) instead of
 
 ## Command validation
 
-Reviewed against official Kubernetes v1.37 installation and runtime documentation. Live EC2 execution is not yet verified. Use fresh lab instances and stop on failed prerequisite checks.
+Commands statically reviewed for consistency with the scripts and linked Kubernetes documentation. Live EC2 execution is not yet verified. Use fresh lab instances and stop on failed prerequisite checks.
 
 ## References
 
