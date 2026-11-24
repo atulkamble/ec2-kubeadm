@@ -40,19 +40,6 @@ Hands-on lab: build a **three-node, self-managed Kubernetes cluster** with **1 c
 
 [More definitions and component roles](docs/technology-stack.md)
 
-## Learning flow
-
-```mermaid
-flowchart TD
- A[1. Create EC2 instances] --> B[2. Connect and prepare all nodes]
- B --> C[3. Install containerd and Kubernetes]
- C --> D[4. Initialize server]
- D --> E[5. Configure kubectl and Flannel]
- E --> F[6. Generate join command]
- F --> G[7. Join both workers]
- G --> H[8. Verify and deploy Nginx]
-```
-
 ## Repository layout
 
 - [steps.md](steps.md) — quick checklist
@@ -334,28 +321,47 @@ worker2   Ready    <none>          ...   v1.37.x
 
 Check `kubectl get nodes -o wide` to confirm each node has a **different private IP**.
 
-## 12. Test scheduling — SERVER ONLY
+## 12. Deploy and test applications — SERVER ONLY
+
+Use the provided YAML files for all application exercises. Do not create a second Deployment with the same name using imperative commands.
 
 ```bash
-kubectl create deployment nginx --image=nginx:stable --replicas=2
-kubectl rollout status deployment/nginx --timeout=180s
-kubectl get deployments
-kubectl get pods -o wide
-kubectl delete deployment nginx
+sudo dnf install -y git
+git clone https://github.com/atulkamble/ec2-kubeadm.git
+cd ec2-kubeadm
 ```
 
-The two replicas may land on the same worker; placement across workers is not guaranteed without scheduling rules. For another exercise, see [DaemonSet documentation](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/).
+If already cloned, simply enter the existing repository directory.
 
-### Practice using YAML files
+| File | Purpose |
+|---|---|
+| manifests/deployment.yaml | Two Nginx replicas |
+| manifests/service.yaml | Internal ClusterIP endpoint |
+| manifests/daemonset.yaml | One Nginx pod per eligible node |
 
-Clone this repository on the server if not already cloned, then run from its directory:
+### A. Deploy
 
 ```bash
 kubectl apply -f manifests/
+kubectl rollout status deployment/nginx --timeout=180s
+kubectl rollout status daemonset/nginx-per-node --timeout=180s
 kubectl get deployments,daemonsets,services
 kubectl get pods -o wide
-kubectl delete -f manifests/
 ```
+
+### B. Test HTTP access
+
+```bash
+kubectl port-forward svc/nginx 8080:80
+```
+
+Open another SSH session to the server and run:
+
+```bash
+curl -I http://127.0.0.1:8080
+```
+
+Expected: HTTP 200. Stop port-forward with Ctrl+C in the original terminal. Deployment replicas may share a worker; the DaemonSet should run on both eligible workers.
 
 ## 13. Troubleshooting
 
@@ -388,56 +394,17 @@ Avoid resetting the cluster or rerunning `kubeadm init` until you've identified 
 
 ```bash
 # SERVER, if the example still exists:
-kubectl delete deployment nginx --ignore-not-found
+kubectl delete -f manifests/ --ignore-not-found
 ```
 
 To end the lab, terminate the EC2 instances and remove unused EBS volumes, public IPv4 allocations, and related paid resources as appropriate. Review the [official kubeadm teardown instructions](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#tear-down) before reusing nodes. EC2, EBS, and public IPv4 can generate charges.
 
-## Script-based installation (alternative to manual steps 3–11)
+## Optional automation
 
-Create the EC2 instances and connect as described in steps 1–2. On each fresh node:
+For a fresh cluster, use the [script-based guide](docs/automation.md) instead of manual steps 3–11. Do not run both methods. After joining the workers, return to step 12 to test the application.
 
-```bash
-sudo dnf install -y git
-git clone https://github.com/atulkamble/ec2-kubeadm.git
-cd ec2-kubeadm
-# Replace server with worker1 or worker2 on the corresponding host:
-sudo bash scripts/01-prepare-node.sh server
-# Reconnect after reboot if required, and return to repository directory.
-sudo bash scripts/02-install-runtime.sh
-sudo bash scripts/03-install-kubernetes.sh
-```
+## References
 
-If runtime setup rejects the installed version, stop and follow [runtime guidance](docs/runtime.md). The scripts are alternatives to the manual commands, not additional steps to rerun on an existing cluster. On server only, as ec2-user:
-
-```bash
-bash scripts/04-init-server.sh SERVER_PRIVATE_IP
-```
-
-Replace SERVER_PRIVATE_IP with the actual VPC address. Paste the generated join command with sudo on each worker. Then on server:
-
-```bash
-bash scripts/05-verify-cluster.sh
-kubectl apply -f manifests/
-kubectl rollout status deployment/nginx --timeout=180s
-kubectl rollout status daemonset/nginx-per-node --timeout=180s
-kubectl get pods -o wide
-kubectl get svc nginx
-kubectl port-forward svc/nginx 8080:80
-```
-
-In another server SSH session, run `curl http://127.0.0.1:8080`. Stop port-forward with Ctrl+C and run `kubectl delete -f manifests/` when finished.
-
-## Related reading
-
-- [Container runtime fallback](docs/runtime.md)
-- [Architecture diagrams](docs/architecture.md)
-
-- [Quick execution checklist](steps.md)
-- [kubeadm vs EKS vs Minikube](difference.md)
-- [Install kubeadm — Kubernetes](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
-- [Create cluster with kubeadm](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/)
-- [Container runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
-- [Required Kubernetes ports](https://kubernetes.io/docs/reference/networking/ports-and-protocols/)
-
-> Historical note: The previous README described an October 2026 run with specific instance IDs and public/private IP addresses. This revision uses placeholders so future batches do not accidentally connect to old instances.
+- [Kubernetes kubeadm installation](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
+- [Kubernetes container runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
+- [Kubernetes required ports](https://kubernetes.io/docs/reference/networking/ports-and-protocols/)
