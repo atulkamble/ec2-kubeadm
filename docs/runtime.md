@@ -1,6 +1,6 @@
 # Container runtime compatibility
 
-Reviewed 24 November 2026: Kubernetes v1.37 recommends containerd 2.3.x or 2.4.x. The upstream matrix lists 2.3.6 (LTS) and 2.4.1 (active). Prefer the latest supported patch of 2.3 LTS.
+Reviewed 24 November 2026: Kubernetes v1.37 recommends containerd 2.3.x or 2.4.x. The upstream matrix lists 2.3.6 (LTS) and 2.4.1 (active). AWS [AL2023 release 2023.12.20261117](https://docs.aws.amazon.com/linux/al2023/release-notes/relnotes-2023.12.20261117.html) includes containerd 2.3.7-1.amzn2023.0.4. Prefer the AWS RPM over a manual upstream install. AL2023 locks repositories to the AMI release by default; for an older AMI upgrade explicitly using `sudo dnf upgrade --releasever=2023.12.20261117 -y` (only if older), reboot if needed, then install containerd. Do not downgrade newer AMIs.
 
 On all nodes:
 ```bash
