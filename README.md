@@ -17,6 +17,7 @@ Hands-on lab: build a **three-node, self-managed Kubernetes cluster** with **1 c
 - [Step 12: Deploy and test applications](#12-deploy-and-test-applications--server-only)
 - [Troubleshooting](#13-troubleshooting)
 - [Cleanup](#14-cleanup-and-costs)
+- [Worked AWS example](#worked-example--aws-ec2-lab-24-november-2026)
 - [Optional automation](#optional-automation)
 - [Command validation](#command-validation)
 - [References](#references)
@@ -148,7 +149,7 @@ All nodes run Amazon Linux 2023, containerd and kubelet. Flannel connects pods u
 
 ## Version compatibility (reviewed 24 November 2026)
 
-- Kubernetes stable minor channel: **v1.37**; official release page lists v1.37.1 at review time. Install the newest available patch from this channel on all nodes.
+- Kubernetes stable minor channel: **v1.37**; the supplied live lab output reports v1.37.2. Install the newest available patch from this channel on all nodes.
 - Containerd: **2.3.x or 2.4.x**; AWS AL2023 release 2023.12.20261117 provides containerd 2.3.7; see [upstream compatibility matrix](https://github.com/containerd/containerd/blob/main/RELEASES.md#kubernetes-support).
 - Flannel: latest stable manifest from its official release page.
 - Amazon Linux 2023: use the latest available AMI and review [AL2023 updates](https://docs.aws.amazon.com/linux/al2023/ug/managing-repos-os-updates.html).
@@ -519,6 +520,100 @@ kubectl delete -f manifests/ --ignore-not-found
 
 To end the lab, terminate the EC2 instances and remove unused EBS volumes, public IPv4 allocations, and related paid resources as appropriate. Review the [official kubeadm teardown instructions](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#tear-down) before reusing nodes. EC2, EBS, and public IPv4 can generate charges.
 
+## Worked example — AWS EC2 lab (24 November 2026)
+
+The following values are from a completed training lab. Public IPs are historical examples; use your own current instance addresses. Never reuse or publish bootstrap tokens.
+
+| Setting | Example |
+|---|---|
+| Operating system | Amazon Linux 2023 |
+| Root storage | 70 GiB SSD (gp3 recommended) |
+| Key pair | kubeadm |
+| Private key | `kubeadm.pem` |
+| VPC | Default VPC |
+| Security group | Default security group (lab example only) |
+| Node communication | All traffic, source = same security group ID |
+
+A dedicated security group is recommended for new labs. If using the default security group, confirm its self-referencing inbound rule and add SSH TCP 22 from your own public IP (/32). Do not allow all traffic from the internet. Avoid changing a shared security group used by unrelated instances.
+
+### Example instance addresses
+
+| Node | Public IPv4 (SSH) | Private IPv4 (cluster) |
+|---|---|---|
+| server | `3.80.214.107` | `172.31.29.239` |
+| worker1 | `100.53.137.103` | `172.31.30.104` |
+| worker2 | `3.94.193.250` | `172.31.29.113` |
+
+### Example SSH commands — local terminal
+
+```bash
+chmod 400 kubeadm.pem
+ssh -i kubeadm.pem ec2-user@3.80.214.107
+# Separate terminals:
+ssh -i kubeadm.pem ec2-user@100.53.137.103
+ssh -i kubeadm.pem ec2-user@3.94.193.250
+```
+
+### Example hostname resolution — ALL NODES
+
+Run once on each node after setting its hostname.
+
+```bash
+sudo tee -a /etc/hosts <<'EOF'
+172.31.29.239 server
+172.31.30.104 worker1
+172.31.29.113 worker2
+EOF
+```
+
+### Example initialization — SERVER ONLY
+
+After completing prerequisites and package installation:
+
+```bash
+SERVER_PRIVATE_IP="172.31.29.239"
+sudo kubeadm init \
+  --kubernetes-version="$(kubeadm version -o short)" \
+  --apiserver-advertise-address="$SERVER_PRIVATE_IP" \
+  --pod-network-cidr=10.244.0.0/16 \
+  --cri-socket=unix:///run/containerd/containerd.sock
+```
+
+Complete kubeconfig and Flannel configuration in steps 7–8 before joining workers.
+
+### Example worker join — WORKERS ONLY
+
+Generate a fresh command on the server:
+
+```bash
+sudo kubeadm token create --print-join-command
+```
+
+Example format (credentials redacted; do not run literally):
+
+```bash
+sudo kubeadm join 172.31.29.239:6443 \
+  --token REDACTED_TOKEN \
+  --discovery-token-ca-cert-hash sha256:REDACTED_HASH \
+  --cri-socket=unix:///run/containerd/containerd.sock
+```
+
+Use the actual generated command on both workers. Revoke any bootstrap token that has been shared.
+
+### Observed cluster output — SERVER ONLY
+
+The following output was supplied from the live lab:
+
+```text
+[ec2-user@ip-172-31-29-239 ~]$ kubectl get nodes
+NAME      STATUS   ROLES           AGE    VERSION
+server    Ready    control-plane   114s   v1.37.2
+worker1   Ready    <none>          14s    v1.37.2
+worker2   Ready    <none>          8s     v1.37.2
+```
+
+**Result:** All three nodes reported Ready with Kubernetes v1.37.2. This confirms node readiness in the supplied lab output, not application or full script testing.
+
 ## Optional automation
 
 Use this alternative on fresh EC2 instances instead of manual steps 3–11. Complete steps 1–2 first.
@@ -583,7 +678,7 @@ When all nodes and system workloads are ready, continue with step 12 (skip cloni
 | Flannel and CoreDNS | Successful rollout |
 | Application | Successful rollout and HTTP 200 |
 
-Commands statically reviewed for consistency with the scripts and linked Kubernetes documentation. Live EC2 execution is not yet verified. Use fresh lab instances and stop on failed prerequisite checks.
+Commands statically reviewed for consistency with the scripts and linked Kubernetes documentation. The supplied live EC2 output confirms three Ready nodes; full script and application execution have not been independently verified. Use fresh lab instances and stop on failed prerequisite checks.
 
 ## References
 
