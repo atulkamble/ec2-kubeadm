@@ -4,6 +4,33 @@ Hands-on lab: build a **three-node, self-managed Kubernetes cluster** with **1 c
 
 > This is a disposable training lab, not a production high-availability architecture. Follow the sections in order. Commands marked **ALL NODES** run independently on all three EC2 instances; **SERVER ONLY** and **WORKERS ONLY** are role-specific.
 
+## Contents
+
+- [Technology stack](#technology-stack)
+- [Kubernetes basics](#kubernetes-basics)
+- [Why kubeadm?](#why-kubeadm)
+- [Repository layout](#repository-layout)
+- [Architecture](#architecture)
+- [Version compatibility](#version-compatibility-reviewed-24-november-2026)
+- [Steps 1–6: Infrastructure and node preparation](#1-create-ec2-instances--aws-console)
+- [Steps 7–11: Cluster initialization and verification](#7-initialize-cluster--server-only)
+- [Step 12: Deploy and test applications](#12-deploy-and-test-applications--server-only)
+- [Troubleshooting](#13-troubleshooting)
+- [Cleanup](#14-cleanup-and-costs)
+- [Optional automation](#optional-automation)
+- [References](#references)
+
+## Lab objectives
+
+By the end of this lab, you should be able to:
+
+- Create and connect to three EC2 instances.
+- Install a compatible container runtime and Kubernetes tools.
+- Initialize a control plane and join two workers.
+- Verify cluster health and deploy, test and remove an application.
+
+> **Reading guide:** Run each numbered step in order. Commands use monospace formatting; replace placeholders with your own values. Keep separate SSH terminals for each node.
+
 ## Technology stack
 
 | Layer | Technology | What it does |
@@ -85,6 +112,8 @@ See [technology stack and component roles](docs/technology-stack.md) and [platfo
 - [steps.md](steps.md) — quick checklist
 - [docs/architecture.md](docs/architecture.md) — architecture and flow diagrams
 - [docs/runtime.md](docs/runtime.md) — containerd compatibility and fallback
+- [docs/technology-stack.md](docs/technology-stack.md) — component definitions and command reference
+- [docs/automation.md](docs/automation.md) — optional script-based setup
 - [scripts/](scripts/) — node preparation, runtime, Kubernetes installation, initialization and verification
 - [manifests/](manifests/) — Deployment, Service and DaemonSet exercises
 - [difference.md](difference.md) — kubeadm vs EKS vs Minikube
@@ -157,7 +186,7 @@ The self-reference permits traffic using private IPs, not public IPs. Do not exp
 - Add an inbound rule **All traffic / All protocols**, with **source = the cluster security group itself** (self-reference). This permits trusted node-to-node networking including API server TCP 6443 and Flannel VXLAN UDP 8472. **Never use 0.0.0.0/0 for All traffic.**
 - Keep normal outbound access for package downloads and container image pulls. Do not open 6443 publicly.
 
-### Values to record
+### Record your instance addresses
 
 ```text
 SERVER_PUBLIC_IP=...
@@ -417,7 +446,7 @@ If already cloned, simply enter the existing repository directory.
 | manifests/service.yaml | Internal ClusterIP endpoint |
 | manifests/daemonset.yaml | One Nginx pod per eligible node |
 
-### A. Deploy
+### 12.1 Deploy
 
 ```bash
 kubectl apply --dry-run=server -f manifests/
@@ -428,7 +457,7 @@ kubectl get deployments,daemonsets,services
 kubectl get pods -o wide
 ```
 
-### B. Test HTTP access
+### 12.2 Test HTTP access
 
 ```bash
 kubectl port-forward svc/nginx 8080:80
@@ -470,6 +499,8 @@ sudo journalctl -u kubelet -n 100 --no-pager
 Avoid resetting the cluster or rerunning `kubeadm init` until you've identified the error.
 
 ## 14. Cleanup and costs
+
+Stop any active port-forward session before cleanup. Run the following from the cloned repository directory on the server.
 
 ```bash
 # SERVER, if the example still exists:
