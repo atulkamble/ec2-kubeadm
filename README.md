@@ -22,6 +22,15 @@ Pod network: Flannel (10.244.0.0/16)
 Node network: EC2 private IPv4 addresses
 ```
 
+## Version compatibility (reviewed 24 November 2026)
+
+- Kubernetes stable minor channel: **v1.37**; official release page lists v1.37.1 at review time. Install the newest available patch from this channel on all nodes.
+- Containerd: **2.3.x or 2.4.x**, latest supported patch available; see [upstream compatibility matrix](https://github.com/containerd/containerd/blob/main/RELEASES.md#kubernetes-support).
+- Flannel: latest stable manifest from its official release page.
+- Amazon Linux 2023: use the latest available AMI and review [AL2023 updates](https://docs.aws.amazon.com/linux/al2023/ug/managing-repos-os-updates.html).
+
+If the Amazon Linux package repository does not supply a compatible containerd version, **stop before kubeadm init**. Install a compatible runtime following the [upstream installation guide](https://github.com/containerd/containerd/blob/main/docs/getting-started.md) (including runc, systemd service and CNI dependencies), or choose an OS/runtime combination supported by the matrix. Do not assume the distribution package is the latest upstream release.
+
 ## 1. Create EC2 instances — AWS Console
 
 | Setting | server | worker1 | worker2 |
@@ -129,6 +138,8 @@ sysctl net.ipv4.ip_forward
 ```bash
 sudo dnf install -y containerd
 containerd --version
+# Review the printed version against the compatibility matrix above.
+# Continue only with a compatible 2.3.x or 2.4.x runtime.
 sudo mkdir -p /etc/containerd
 containerd config default | sudo tee /etc/containerd/config.toml >/dev/null
 # Change the runtime cgroup driver (works with default 1.x/2.x generated configs)
@@ -143,16 +154,16 @@ Expected: `SystemdCgroup = true`, with the CRI plugin **not disabled**, and the 
 
 ## 6. Install kubeadm, kubelet, kubectl — ALL NODES
 
-This lab uses the Kubernetes **v1.36** RPM channel consistently across nodes. Choose another supported *minor* version only by changing the URL on **all three nodes** before installation.
+This lab uses the Kubernetes **v1.37** RPM channel consistently across nodes. Choose another supported *minor* version only by changing the URL on **all three nodes** before installation.
 
 ```bash
 sudo tee /etc/yum.repos.d/kubernetes.repo <<'EOF'
 [kubernetes]
 name=Kubernetes
-baseurl=https://pkgs.k8s.io/core:/stable:/v1.36/rpm/
+baseurl=https://pkgs.k8s.io/core:/stable:/v1.37/rpm/
 enabled=1
 gpgcheck=1
-gpgkey=https://pkgs.k8s.io/core:/stable:/v1.36/rpm/repodata/repomd.xml.key
+gpgkey=https://pkgs.k8s.io/core:/stable:/v1.37/rpm/repodata/repomd.xml.key
 exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
 EOF
 
@@ -162,6 +173,7 @@ sudo systemctl enable --now kubelet
 kubeadm version
 kubelet --version
 kubectl version --client
+rpm -q kubeadm kubelet kubectl containerd
 ```
 
 The kubelet may repeatedly restart until the node has been initialized/joined. That is expected. Do not run `kubeadm init` on workers.
@@ -173,6 +185,7 @@ Check that `hostname -I` contains the server's correct VPC **private** IPv4 addr
 ```bash
 SERVER_PRIVATE_IP="<SERVER_PRIVATE_IP>"
 sudo kubeadm init \
+  --kubernetes-version="$(kubeadm version -o short)" \
   --apiserver-advertise-address="$SERVER_PRIVATE_IP" \
   --pod-network-cidr=10.244.0.0/16 \
   --cri-socket=unix:///run/containerd/containerd.sock
@@ -244,9 +257,9 @@ Expected eventually:
 
 ```text
 NAME      STATUS   ROLES           AGE   VERSION
-server    Ready    control-plane   ...   v1.36.x
-worker1   Ready    <none>          ...   v1.36.x
-worker2   Ready    <none>          ...   v1.36.x
+server    Ready    control-plane   ...   v1.37.x
+worker1   Ready    <none>          ...   v1.37.x
+worker2   Ready    <none>          ...   v1.37.x
 ```
 
 Check `kubectl get nodes -o wide` to confirm each node has a **different private IP**.
