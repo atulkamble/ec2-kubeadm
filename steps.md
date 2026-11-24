@@ -9,7 +9,7 @@ Full copy/paste commands and troubleshooting: **[README.md](README.md)**.
 | 3 | All 3 nodes | SSH using `ssh -i kubeadm.pem ec2-user@<PUBLIC_IP>`; assign unique hostnames and working private IP resolution |
 | 4 | All 3 nodes | `dnf update`, disable swap, enable overlay/br_netfilter and IP forwarding |
 | 5 | All 3 nodes | Install **containerd**, set `SystemdCgroup = true`, enable containerd service |
-| 6 | All 3 nodes | Configure Kubernetes v1.36 RPM repo, install **kubeadm + kubelet + kubectl**, enable kubelet |
+| 6 | All 3 nodes | Configure Kubernetes v1.37 RPM repo, install **kubeadm + kubelet + kubectl**, enable kubelet |
 | 7 | Server only | `sudo kubeadm init --apiserver-advertise-address=<SERVER_PRIVATE_IP> --pod-network-cidr=10.244.0.0/16 --cri-socket=unix:///run/containerd/containerd.sock` |
 | 8 | Server only | Copy `/etc/kubernetes/admin.conf` to `$HOME/.kube/config`, correct ownership |
 | 9 | Server only | Install **Flannel CNI**; do not combine CNIs |
@@ -17,6 +17,17 @@ Full copy/paste commands and troubleshooting: **[README.md](README.md)**.
 | 11 | Worker1 and worker2 | Run `sudo kubeadm join ...` with the **actual** output from the server |
 | 12 | Server only | Verify all **3 nodes Ready** and check system pods |
 | 13 | Server only | Deploy test Nginx workload, inspect placement and clean up |
+
+## Version checks (all nodes)
+
+Use the v1.37 RPM channel and verify containerd is a compatible 2.3.x or 2.4.x release before initialization. If the distribution runtime is older, follow the compatibility guidance in README.md before continuing.
+
+```bash
+containerd --version
+kubeadm version
+kubelet --version
+kubectl version --client
+```
 
 ## Verification (server)
 
@@ -34,6 +45,7 @@ Expected: `server`, `worker1`, and `worker2` all report `Ready`.
 ```bash
 # After all-node preparation detailed in README:
 sudo kubeadm init \
+  --kubernetes-version="$(kubeadm version -o short)" \
   --apiserver-advertise-address=<SERVER_PRIVATE_IP> \
   --pod-network-cidr=10.244.0.0/16 \
   --cri-socket=unix:///run/containerd/containerd.sock
