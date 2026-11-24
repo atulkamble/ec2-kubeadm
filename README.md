@@ -4,6 +4,55 @@ Hands-on lab: build a **three-node, self-managed Kubernetes cluster** with **1 c
 
 > This is a disposable training lab, not a production high-availability architecture. Follow the sections in order. Commands marked **ALL NODES** run independently on all three EC2 instances; **SERVER ONLY** and **WORKERS ONLY** are role-specific.
 
+## Technology stack
+
+| Layer | Technology | What it does |
+|---|---|---|
+| Cloud | AWS EC2 | Provides three virtual machines |
+| Network | VPC, subnet, security group | Connects and protects the nodes |
+| Storage | EBS | Stores OS and application files |
+| OS | Amazon Linux 2023 | Linux environment for Kubernetes |
+| Runtime | containerd 2.3/2.4 | Runs containers |
+| Orchestration | Kubernetes v1.37 | Manages containerized applications |
+| Setup | kubeadm | Creates the cluster and joins workers |
+| Node agent | kubelet | Keeps pods running on each node |
+| CLI | kubectl | Sends commands to the Kubernetes API |
+| Pod network | Flannel CNI | Connects pods across nodes |
+| Test application | Nginx | Verifies application deployment |
+| Automation | Bash, YAML | Automates setup and defines resources |
+
+## Basic definitions
+
+| Term | Simple meaning |
+|---|---|
+| Cluster | A group of machines working together |
+| Node | One machine in the cluster |
+| Control plane (server) | Manages cluster state and scheduling |
+| Worker | Runs application pods |
+| Pod | Smallest deployable Kubernetes unit; contains one or more containers |
+| Deployment | Maintains a desired number of application replicas |
+| Service | Provides a stable network endpoint for pods |
+| DaemonSet | Runs a pod on every eligible node |
+| CNI | Container Network Interface; standard for pod networking plugins |
+| CRI | Container Runtime Interface; connects kubelet to the runtime |
+| etcd | Stores Kubernetes cluster state |
+| Join token | Temporary credential used when joining nodes |
+
+[More definitions and component roles](docs/technology-stack.md)
+
+## Learning flow
+
+```mermaid
+flowchart TD
+ A[1. Create EC2 instances] --> B[2. Connect and prepare all nodes]
+ B --> C[3. Install containerd and Kubernetes]
+ C --> D[4. Initialize server]
+ D --> E[5. Configure kubectl and Flannel]
+ E --> F[6. Generate join command]
+ F --> G[7. Join both workers]
+ G --> H[8. Verify and deploy Nginx]
+```
+
 ## Repository layout
 
 - [steps.md](steps.md) — quick checklist
@@ -12,41 +61,6 @@ Hands-on lab: build a **three-node, self-managed Kubernetes cluster** with **1 c
 - [scripts/](scripts/) — node preparation, runtime, Kubernetes installation, initialization and verification
 - [manifests/](manifests/) — Deployment, Service and DaemonSet exercises
 - [difference.md](difference.md) — kubeadm vs EKS vs Minikube
-
-## Script-based installation (alternative to manual steps 3–11)
-
-Create the EC2 instances and connect as described in steps 1–2. On each fresh node:
-
-```bash
-sudo dnf install -y git
-git clone https://github.com/atulkamble/ec2-kubeadm.git
-cd ec2-kubeadm
-# Replace server with worker1 or worker2 on the corresponding host:
-sudo bash scripts/01-prepare-node.sh server
-# Reconnect after reboot if required, and return to repository directory.
-sudo bash scripts/02-install-runtime.sh
-sudo bash scripts/03-install-kubernetes.sh
-```
-
-If runtime setup rejects the installed version, stop and follow [runtime guidance](docs/runtime.md). The scripts are alternatives to the manual commands, not additional steps to rerun on an existing cluster. On server only, as ec2-user:
-
-```bash
-bash scripts/04-init-server.sh SERVER_PRIVATE_IP
-```
-
-Replace SERVER_PRIVATE_IP with the actual VPC address. Paste the generated join command with sudo on each worker. Then on server:
-
-```bash
-bash scripts/05-verify-cluster.sh
-kubectl apply -f manifests/
-kubectl rollout status deployment/nginx --timeout=180s
-kubectl rollout status daemonset/nginx-per-node --timeout=180s
-kubectl get pods -o wide
-kubectl get svc nginx
-kubectl port-forward svc/nginx 8080:80
-```
-
-In another server SSH session, run `curl http://127.0.0.1:8080`. Stop port-forward with Ctrl+C and run `kubectl delete -f manifests/` when finished.
 
 ## Architecture
 
@@ -211,13 +225,9 @@ gpgkey=https://pkgs.k8s.io/core:/stable:/v1.37/rpm/repodata/repomd.xml.key
 exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
 EOF
 
-sudo dnf install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+sudo dnf install -y kubelet kubeadm kubectl cri-tools kubernetes-cni --disableexcludes=kubernetes
 sudo systemctl enable --now kubelet
 
-kubeadm version
-kubelet --version
-kubectl version --client
-rpm -q kubeadm kubelet kubectl containerd
 ```
 
 The kubelet may repeatedly restart until the node has been initialized/joined. That is expected. Do not run `kubeadm init` on workers.
@@ -232,8 +242,11 @@ containerd --version
 kubeadm version
 kubelet --version
 kubectl version --client
-rpm -q kubeadm kubelet kubectl containerd
+rpm -q kubeadm kubelet kubectl
+sudo crictl --runtime-endpoint unix:///run/containerd/containerd.sock info
 ```
+
+If containerd was installed from RPM, also run `rpm -q containerd`. An upstream binary installation will not have an RPM record.
 
 ## 7. Initialize cluster — SERVER ONLY
 
@@ -333,6 +346,17 @@ kubectl delete deployment nginx
 
 The two replicas may land on the same worker; placement across workers is not guaranteed without scheduling rules. For another exercise, see [DaemonSet documentation](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/).
 
+### Practice using YAML files
+
+Clone this repository on the server if not already cloned, then run from its directory:
+
+```bash
+kubectl apply -f manifests/
+kubectl get deployments,daemonsets,services
+kubectl get pods -o wide
+kubectl delete -f manifests/
+```
+
 ## 13. Troubleshooting
 
 | Symptom | Check |
@@ -368,6 +392,41 @@ kubectl delete deployment nginx --ignore-not-found
 ```
 
 To end the lab, terminate the EC2 instances and remove unused EBS volumes, public IPv4 allocations, and related paid resources as appropriate. Review the [official kubeadm teardown instructions](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#tear-down) before reusing nodes. EC2, EBS, and public IPv4 can generate charges.
+
+## Script-based installation (alternative to manual steps 3–11)
+
+Create the EC2 instances and connect as described in steps 1–2. On each fresh node:
+
+```bash
+sudo dnf install -y git
+git clone https://github.com/atulkamble/ec2-kubeadm.git
+cd ec2-kubeadm
+# Replace server with worker1 or worker2 on the corresponding host:
+sudo bash scripts/01-prepare-node.sh server
+# Reconnect after reboot if required, and return to repository directory.
+sudo bash scripts/02-install-runtime.sh
+sudo bash scripts/03-install-kubernetes.sh
+```
+
+If runtime setup rejects the installed version, stop and follow [runtime guidance](docs/runtime.md). The scripts are alternatives to the manual commands, not additional steps to rerun on an existing cluster. On server only, as ec2-user:
+
+```bash
+bash scripts/04-init-server.sh SERVER_PRIVATE_IP
+```
+
+Replace SERVER_PRIVATE_IP with the actual VPC address. Paste the generated join command with sudo on each worker. Then on server:
+
+```bash
+bash scripts/05-verify-cluster.sh
+kubectl apply -f manifests/
+kubectl rollout status deployment/nginx --timeout=180s
+kubectl rollout status daemonset/nginx-per-node --timeout=180s
+kubectl get pods -o wide
+kubectl get svc nginx
+kubectl port-forward svc/nginx 8080:80
+```
+
+In another server SSH session, run `curl http://127.0.0.1:8080`. Stop port-forward with Ctrl+C and run `kubectl delete -f manifests/` when finished.
 
 ## Related reading
 
