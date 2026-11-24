@@ -5,7 +5,9 @@ case "${1:-}" in server|worker1|worker2) hostnamectl set-hostname "$1";; *) echo
 dnf upgrade -y
 # Use the current AL2023 AMI; older releases may require an explicit release upgrade.
 # See docs/runtime.md before proceeding if containerd is incompatible.
-dnf install -y conntrack-tools socat iproute-tc git tar
+dnf install -y conntrack-tools socat iproute-tc git tar iptables
+getenforce
+uname -r
 swapoff -a
 sed -i.bak '/[[:space:]]swap[[:space:]]/s/^/#/' /etc/fstab
 printf 'overlay\nbr_netfilter\n' > /etc/modules-load.d/k8s.conf
