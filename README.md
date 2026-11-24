@@ -4,6 +4,50 @@ Hands-on lab: build a **three-node, self-managed Kubernetes cluster** with **1 c
 
 > This is a disposable training lab, not a production high-availability architecture. Follow the sections in order. Commands marked **ALL NODES** run independently on all three EC2 instances; **SERVER ONLY** and **WORKERS ONLY** are role-specific.
 
+## Repository layout
+
+- [steps.md](steps.md) — quick checklist
+- [docs/architecture.md](docs/architecture.md) — architecture and flow diagrams
+- [docs/runtime.md](docs/runtime.md) — containerd compatibility and fallback
+- [scripts/](scripts/) — node preparation, runtime, Kubernetes installation, initialization and verification
+- [manifests/](manifests/) — Deployment, Service and DaemonSet exercises
+- [difference.md](difference.md) — kubeadm vs EKS vs Minikube
+
+## Script-based installation (alternative to manual steps 3–11)
+
+Create the EC2 instances and connect as described in steps 1–2. On each fresh node:
+
+```bash
+sudo dnf install -y git
+git clone https://github.com/atulkamble/ec2-kubeadm.git
+cd ec2-kubeadm
+# Replace server with worker1 or worker2 on the corresponding host:
+sudo bash scripts/01-prepare-node.sh server
+# Reconnect after reboot if required, and return to repository directory.
+sudo bash scripts/02-install-runtime.sh
+sudo bash scripts/03-install-kubernetes.sh
+```
+
+If runtime setup rejects the installed version, stop and follow [runtime guidance](docs/runtime.md). The scripts are alternatives to the manual commands, not additional steps to rerun on an existing cluster. On server only, as ec2-user:
+
+```bash
+bash scripts/04-init-server.sh SERVER_PRIVATE_IP
+```
+
+Replace SERVER_PRIVATE_IP with the actual VPC address. Paste the generated join command with sudo on each worker. Then on server:
+
+```bash
+bash scripts/05-verify-cluster.sh
+kubectl apply -f manifests/
+kubectl rollout status deployment/nginx --timeout=180s
+kubectl rollout status daemonset/nginx-per-node --timeout=180s
+kubectl get pods -o wide
+kubectl get svc nginx
+kubectl port-forward svc/nginx 8080:80
+```
+
+In another server SSH session, run `curl http://127.0.0.1:8080`. Stop port-forward with Ctrl+C and run `kubectl delete -f manifests/` when finished.
+
 ## Architecture
 
 ```text
@@ -25,7 +69,7 @@ Node network: EC2 private IPv4 addresses
 ## Version compatibility (reviewed 24 November 2026)
 
 - Kubernetes stable minor channel: **v1.37**; official release page lists v1.37.1 at review time. Install the newest available patch from this channel on all nodes.
-- Containerd: **2.3.x or 2.4.x**, latest supported patch available; see [upstream compatibility matrix](https://github.com/containerd/containerd/blob/main/RELEASES.md#kubernetes-support).
+- Containerd: **2.3.x or 2.4.x**, latest supported patch available (2.3.6 LTS / 2.4.1 active at review); see [upstream compatibility matrix](https://github.com/containerd/containerd/blob/main/RELEASES.md#kubernetes-support).
 - Flannel: latest stable manifest from its official release page.
 - Amazon Linux 2023: use the latest available AMI and review [AL2023 updates](https://docs.aws.amazon.com/linux/al2023/ug/managing-repos-os-updates.html).
 
@@ -326,6 +370,9 @@ kubectl delete deployment nginx --ignore-not-found
 To end the lab, terminate the EC2 instances and remove unused EBS volumes, public IPv4 allocations, and related paid resources as appropriate. Review the [official kubeadm teardown instructions](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/#tear-down) before reusing nodes. EC2, EBS, and public IPv4 can generate charges.
 
 ## Related reading
+
+- [Container runtime fallback](docs/runtime.md)
+- [Architecture diagrams](docs/architecture.md)
 
 - [Quick execution checklist](steps.md)
 - [kubeadm vs EKS vs Minikube](difference.md)
