@@ -152,7 +152,7 @@ The self-reference permits traffic using private IPs, not public IPs. Do not exp
 
 - Give each instance a different **Name**. A single subnet is easiest for this lab, but not a Kubernetes requirement.
 - Nodes must reach package repositories and image registries (Internet Gateway/NAT as appropriate).
-- Select a subnet/VPC CIDR **that does not overlap** the Flannel Pod CIDR `10.244.0.0/16`. Default AWS VPC `172.31.0.0/16` is fine.
+- Select a subnet/VPC CIDR **that does not overlap** the Flannel Pod CIDR `10.244.0.0/16`. Also avoid overlap with the default Service CIDR `10.96.0.0/12`. Default AWS VPC `172.31.0.0/16` is fine.
 - Set the security group's **inbound SSH TCP 22** source to **your own public IP (/32)**, not everyone.
 - Add an inbound rule **All traffic / All protocols**, with **source = the cluster security group itself** (self-reference). This permits trusted node-to-node networking including API server TCP 6443 and Flannel VXLAN UDP 8472. **Never use 0.0.0.0/0 for All traffic.**
 - Keep normal outbound access for package downloads and container image pulls. Do not open 6443 publicly.
@@ -219,7 +219,9 @@ EOF
 # For an older AL2023 release only, upgrade to the verified baseline:
 # sudo dnf upgrade --releasever=2023.12.20261117 -y
 sudo dnf upgrade -y
-sudo dnf install -y curl tar conntrack-tools socat iproute-tc
+sudo dnf install -y curl tar conntrack-tools socat iproute-tc iptables
+getenforce
+uname -r
 # A reboot may be needed if the kernel was updated; reconnect afterward.
 sudo swapoff -a
 sudo sed -i.bak '/[[:space:]]swap[[:space:]]/s/^/#/' /etc/fstab
@@ -283,6 +285,8 @@ sudo systemctl enable --now kubelet
 
 ```
 
+Check SELinux with `getenforce`. Upstream RPM instructions use permissive mode; on a disposable lab only, if enforcing and required by the CNI, use `sudo setenforce 0` and set `SELINUX=permissive` in `/etc/selinux/config`. Prefer a supported enforcing configuration for production.
+
 The kubelet may repeatedly restart until the node has been initialized/joined. That is expected. Do not run `kubeadm init` on workers.
 
 ### Verify installed versions — ALL NODES
@@ -318,8 +322,7 @@ After `Your Kubernetes control-plane has initialized successfully!`, configure t
 
 ```bash
 mkdir -p "$HOME/.kube"
-sudo cp /etc/kubernetes/admin.conf "$HOME/.kube/config"
-sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
+sudo install -o "$(id -u)" -g "$(id -g)" -m 600 /etc/kubernetes/admin.conf "$HOME/.kube/config"
 kubectl cluster-info
 kubectl get nodes
 ```
@@ -369,7 +372,7 @@ Do not execute this sample literally. Use the real server IP/token/hash. Each wo
 ## 11. Verify — SERVER ONLY
 
 ```bash
-kubectl get nodes
+kubectl wait --for=condition=Ready node/server node/worker1 node/worker2 --timeout=300s
 kubectl get nodes -o wide
 kubectl get pods -n kube-system
 kubectl get pods -n kube-flannel
@@ -417,6 +420,7 @@ If already cloned, simply enter the existing repository directory.
 ### A. Deploy
 
 ```bash
+kubectl apply --dry-run=server -f manifests/
 kubectl apply -f manifests/
 kubectl rollout status deployment/nginx --timeout=180s
 kubectl rollout status daemonset/nginx-per-node --timeout=180s
@@ -477,6 +481,10 @@ To end the lab, terminate the EC2 instances and remove unused EBS volumes, publi
 ## Optional automation
 
 For a fresh cluster, use the [script-based guide](docs/automation.md) instead of manual steps 3–11. Do not run both methods. After joining the workers, return to step 12 to test the application.
+
+## Command validation
+
+Reviewed against official Kubernetes v1.37 installation and runtime documentation. Live EC2 execution is not yet verified. Use fresh lab instances and stop on failed prerequisite checks.
 
 ## References
 
