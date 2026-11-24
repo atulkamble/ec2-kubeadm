@@ -18,6 +18,7 @@ Hands-on lab: build a **three-node, self-managed Kubernetes cluster** with **1 c
 - [Troubleshooting](#13-troubleshooting)
 - [Cleanup](#14-cleanup-and-costs)
 - [Optional automation](#optional-automation)
+- [Command validation](#command-validation)
 - [References](#references)
 
 ## Lab objectives
@@ -520,9 +521,67 @@ To end the lab, terminate the EC2 instances and remove unused EBS volumes, publi
 
 ## Optional automation
 
-For a fresh cluster, use the [script-based guide](docs/automation.md) instead of manual steps 3–11. Do not run both methods. After joining the workers, return to step 12 to test the application.
+Use this alternative on fresh EC2 instances instead of manual steps 3–11. Complete steps 1–2 first.
+
+### A. Clone the repository — ALL NODES
+
+```bash
+sudo dnf install -y git
+git clone https://github.com/atulkamble/ec2-kubeadm.git
+cd ec2-kubeadm
+```
+
+### B. Prepare each node
+
+Run only the command matching the node:
+
+```bash
+sudo bash scripts/01-prepare-node.sh server
+# On worker1 instead:
+# sudo bash scripts/01-prepare-node.sh worker1
+# On worker2 instead:
+# sudo bash scripts/01-prepare-node.sh worker2
+```
+
+Complete hostname resolution as in step 3. Reboot and reconnect if required.
+
+### C. Install runtime and Kubernetes — ALL NODES
+
+```bash
+sudo bash scripts/02-install-runtime.sh
+sudo bash scripts/03-install-kubernetes.sh
+rpm -q kubeadm kubelet kubectl
+```
+
+Stop on any error. Compare versions across all three nodes. Review the SELinux guidance in step 6 before initialization.
+
+### D. Initialize — SERVER ONLY
+
+```bash
+bash scripts/04-init-server.sh REPLACE_WITH_SERVER_PRIVATE_IP
+```
+
+Replace the placeholder with the actual private IPv4 address. Copy the printed join command, including sudo and the CRI socket, and execute it on each worker.
+
+### E. Verify — SERVER ONLY
+
+```bash
+bash scripts/05-verify-cluster.sh
+```
+
+When all nodes and system workloads are ready, continue with step 12 (skip cloning again).
 
 ## Command validation
+
+| Check | Expected result |
+|---|---|
+| Swap | No active swap |
+| IP forwarding | 1 |
+| Containerd | active; CRI responds |
+| Kubernetes packages | Matching versions on all three nodes |
+| Nodes | Three Ready nodes |
+| Flannel and CoreDNS | Successful rollout |
+| Application | Successful rollout and HTTP 200 |
 
 Commands statically reviewed for consistency with the scripts and linked Kubernetes documentation. Live EC2 execution is not yet verified. Use fresh lab instances and stop on failed prerequisite checks.
 
