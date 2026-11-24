@@ -17,7 +17,7 @@ On server only:
 ```bash
 bash scripts/04-init-server.sh SERVER_PRIVATE_IP
 ```
-Replace SERVER_PRIVATE_IP with the actual private IP. Run the generated join command with sudo on both workers.
+Replace SERVER_PRIVATE_IP with the actual private IP. Run the generated join command (already includes sudo and the CRI socket) on both workers. Compare Kubernetes package versions across all three nodes before initialization.
 
 On server:
 ```bash
