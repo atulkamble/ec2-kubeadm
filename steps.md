@@ -63,3 +63,7 @@ sudo kubeadm token create --print-join-command
 **Workers:** paste the resulting `kubeadm join` command with `sudo`, once on each worker.
 
 > The angle-bracket placeholders must be replaced. Never publish live join tokens. Refer to [README.md](README.md) for all required prerequisite commands and troubleshooting.
+
+## Script alternative
+
+Follow the [script-based installation in README](README.md#script-based-installation-alternative-to-manual-steps-311) and use the manifests for workload practice. Do not repeat manual initialization after using the script.
