@@ -14,8 +14,12 @@ mkdir -p /etc/containerd
 if [[ -f /etc/containerd/config.toml ]]; then
   cp -n /etc/containerd/config.toml /etc/containerd/config.toml.pre-kubeadm
 fi
-containerd config default > /etc/containerd/config.toml
-sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+containerd config default > "$tmp"
+sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' "$tmp"
+grep -q 'SystemdCgroup = true' "$tmp"
+install -m 644 "$tmp" /etc/containerd/config.toml
 grep -q 'SystemdCgroup = true' /etc/containerd/config.toml
 systemctl daemon-reload
 systemctl enable --now containerd
