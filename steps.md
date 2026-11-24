@@ -23,10 +23,12 @@ Full copy/paste commands and troubleshooting: **[README.md](README.md)**.
 Use the v1.37 RPM channel and verify containerd is a compatible 2.3.x or 2.4.x release before initialization. If the distribution runtime is older, follow the compatibility guidance in README.md before continuing.
 
 ```bash
+cat /etc/os-release
 containerd --version
 kubeadm version
 kubelet --version
 kubectl version --client
+rpm -q kubeadm kubelet kubectl containerd
 ```
 
 ## Verification (server)
