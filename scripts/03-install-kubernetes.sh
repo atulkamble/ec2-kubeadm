@@ -18,4 +18,7 @@ kubeadm version
 kubelet --version
 kubectl version --client
 rpm -q kubeadm kubelet kubectl
+for plugin in bridge loopback host-local portmap; do
+  test -x "/opt/cni/bin/$plugin" || { echo "Missing CNI plugin: $plugin"; exit 1; }
+done
 crictl --runtime-endpoint unix:///run/containerd/containerd.sock info >/dev/null
