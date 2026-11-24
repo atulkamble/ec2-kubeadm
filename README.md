@@ -119,7 +119,7 @@ All nodes run Amazon Linux 2023, containerd and kubelet. Flannel connects pods u
 ## Version compatibility (reviewed 24 November 2026)
 
 - Kubernetes stable minor channel: **v1.37**; official release page lists v1.37.1 at review time. Install the newest available patch from this channel on all nodes.
-- Containerd: **2.3.x or 2.4.x**, latest supported patch available (2.3.6 LTS / 2.4.1 active at review); see [upstream compatibility matrix](https://github.com/containerd/containerd/blob/main/RELEASES.md#kubernetes-support).
+- Containerd: **2.3.x or 2.4.x**; AWS AL2023 release 2023.12.20261117 provides containerd 2.3.7; see [upstream compatibility matrix](https://github.com/containerd/containerd/blob/main/RELEASES.md#kubernetes-support).
 - Flannel: latest stable manifest from its official release page.
 - Amazon Linux 2023: use the latest available AMI and review [AL2023 updates](https://docs.aws.amazon.com/linux/al2023/ug/managing-repos-os-updates.html).
 
@@ -131,10 +131,24 @@ If the Amazon Linux package repository does not supply a compatible containerd v
 |---|---|---|---|
 | AMI | Amazon Linux 2023, x86_64 | Same | Same |
 | Instance | t3.large (2 vCPU / 8 GiB) | t3.medium (2 vCPU / 4 GiB) | t3.medium |
-| Root EBS | 70 GiB | 50 GiB | 50 GiB |
-| Key pair | `kubeadm.pem` | Same key | Same key |
+| Root EBS (gp3) | 70 GiB | 50 GiB | 50 GiB |
+| Key pair | `kubeadm` (RSA, .pem download) | Same key | Same key |
 | VPC / subnet | Same VPC and subnet | Same | Same |
 | Security group | Dedicated cluster SG | Same | Same |
+
+### AWS Console settings
+
+Open EC2 > Instances > Launch instances. Select the Amazon Linux 2023 x86_64 AMI, instance type and key pair from the table. Create the key pair once and reuse it. Keep the PEM file locally.
+
+For this direct SSH lab, select a public subnet with a route to an Internet Gateway and enable Auto-assign public IP. Use private IPv4 for node-to-node traffic. In Network settings choose the same dedicated security group for all three nodes.
+
+| Direction | Type | Source / destination |
+|---|---|---|
+| Inbound | SSH TCP 22 | My IP (/32) |
+| Inbound | All traffic | Same security group ID |
+| Outbound | All traffic | 0.0.0.0/0 (lab downloads) |
+
+The self-reference permits traffic using private IPs, not public IPs. Do not expose the API or all traffic to the internet.
 
 - Give each instance a different **Name**. A single subnet is easiest for this lab, but not a Kubernetes requirement.
 - Nodes must reach package repositories and image registries (Internet Gateway/NAT as appropriate).
@@ -202,7 +216,9 @@ EOF
 ## 4. OS and kernel preparation — ALL NODES
 
 ```bash
-sudo dnf update -y
+# For an older AL2023 release only, upgrade to the verified baseline:
+# sudo dnf upgrade --releasever=2023.12.20261117 -y
+sudo dnf upgrade -y
 sudo dnf install -y curl tar conntrack-tools socat iproute-tc
 # A reboot may be needed if the kernel was updated; reconnect afterward.
 sudo swapoff -a
@@ -231,6 +247,7 @@ sysctl net.ipv4.ip_forward
 
 ```bash
 sudo dnf install -y containerd
+rpm -q containerd
 containerd --version
 # Review the printed version against the compatibility matrix above.
 # Continue only with a compatible 2.3.x or 2.4.x runtime.
@@ -462,6 +479,11 @@ To end the lab, terminate the EC2 instances and remove unused EBS volumes, publi
 For a fresh cluster, use the [script-based guide](docs/automation.md) instead of manual steps 3–11. Do not run both methods. After joining the workers, return to step 12 to test the application.
 
 ## References
+
+- [AWS AL2023 release 2023.12.20261117](https://docs.aws.amazon.com/linux/al2023/release-notes/relnotes-2023.12.20261117.html)
+- [EC2 launch parameters](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-launch-parameters.html)
+- [AWS security group rules](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/security-group-rules-reference.html)
+- [AWS SSH troubleshooting](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstancesConnecting.html)
 
 - [Kubernetes kubeadm installation](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/)
 - [Kubernetes container runtimes](https://kubernetes.io/docs/setup/production-environment/container-runtimes/)
