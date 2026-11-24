@@ -10,4 +10,5 @@ sudo kubeadm init --apiserver-advertise-address="$ip" --kubernetes-version="$(ku
 mkdir -p "$HOME/.kube"
 sudo install -o "$(id -u)" -g "$(id -g)" -m 600 /etc/kubernetes/admin.conf "$HOME/.kube/config"
 kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
-sudo kubeadm token create --print-join-command
+join=$(sudo kubeadm token create --print-join-command)
+printf 'sudo %s --cri-socket=unix:///run/containerd/containerd.sock\n' "$join"
