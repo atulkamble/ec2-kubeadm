@@ -2,7 +2,7 @@
 
 | Feature                   | kubeadm                                       | Amazon EKS                           | Minikube                                  |
 | ------------------------- | --------------------------------------------- | ------------------------------------ | ----------------------------------------- |
-| Full Name                 | Kubernetes Administrator Tool                 | Amazon Elastic Kubernetes Service    | Minikube                                  |
+| Full Name                 | kubeadm (Kubernetes bootstrapping tool)                 | Amazon Elastic Kubernetes Service    | Minikube                                  |
 | Type                      | Self-managed Kubernetes setup tool            | AWS-managed Kubernetes service       | Local Kubernetes tool                     |
 | Purpose                   | Build and manage Kubernetes clusters          | Run Kubernetes on AWS                | Learn and practice Kubernetes             |
 | Environment               | EC2, VMs, Bare Metal                          | AWS Cloud                            | Laptop, Desktop, EC2                      |
@@ -51,7 +51,7 @@ Control plane + workloads on one node (default)
 1\. kubeadm (on configured Linux node)
 
 ```
-sudo kubeadm init --pod-network-cidr=192.168.0.0/16
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
 ```
 
 2\. Amazon EKS (AWS North Virginia)
@@ -87,3 +87,5 @@ minikube start --driver=docker
 Recommended learning order: Minikube → kubeadm → Amazon EKS.
 
 Important: kubeadm is a cluster bootstrapping tool, EKS is a managed Kubernetes service, and Minikube is a local cluster development tool. All three use Kubernetes, and standard `kubectl` commands work across them.
+
+For this repository, the kubeadm example assumes Flannel and a non-overlapping Pod CIDR. Follow [README.md](README.md) for all prerequisites and current version guidance.
