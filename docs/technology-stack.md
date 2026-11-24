@@ -57,3 +57,9 @@ flowchart TD
 | VXLAN | Overlay networking used by default by Flannel |
 
 See [README](../README.md) for version requirements and setup, and [architecture](architecture.md) for the cluster diagram.
+
+## AWS lab baseline
+
+Amazon Linux 2023 x86_64 release 2023.12.20261117 includes containerd 2.3.7. Use the same VPC, public subnet and dedicated self-referencing security group. SSH uses ec2-user and the local kubeadm.pem key; Kubernetes uses private IPs.
+
+[Official AWS release notes](https://docs.aws.amazon.com/linux/al2023/release-notes/relnotes-2023.12.20261117.html)
