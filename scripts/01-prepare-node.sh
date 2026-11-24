@@ -2,7 +2,9 @@
 set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo "Run with sudo"; exit 1; }
 case "${1:-}" in server|worker1|worker2) hostnamectl set-hostname "$1";; *) echo "Usage: sudo bash $0 server|worker1|worker2"; exit 1;; esac
-dnf update -y
+dnf upgrade -y
+# Use the current AL2023 AMI; older releases may require an explicit release upgrade.
+# See docs/runtime.md before proceeding if containerd is incompatible.
 dnf install -y conntrack-tools socat iproute-tc git tar
 swapoff -a
 sed -i.bak '/[[:space:]]swap[[:space:]]/s/^/#/' /etc/fstab
