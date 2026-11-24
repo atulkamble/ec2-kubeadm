@@ -1,27 +1,4 @@
-# Quick execution checklist
-
-Follow [README.md](README.md) for commands. This checklist is a navigation aid, not a second installation guide.
-
-| Step | Where | Task |
-|---|---|---|
-| 1 | AWS Console | Create three EC2 instances, same VPC/subnet/SG and key pair |
-| 2 | Workstation | Connect to each instance |
-| 3 | All nodes | Assign unique hostnames |
-| 4 | All nodes | Prepare OS, swap and networking |
-| 5 | All nodes | Install compatible containerd |
-| 6 | All nodes | Install Kubernetes components and verify versions |
-| 7 | Server | Initialize control plane and configure kubectl |
-| 8 | Server | Install Flannel |
-| 9 | Server | Generate fresh join command |
-| 10 | Both workers | Execute generated join command with sudo |
-| 11 | Server | Verify three Ready nodes and system pods |
-| 12 | Server | Apply YAML manifests, verify rollout, test HTTP |
-| 13 | As needed | Troubleshoot |
-| 14 | Server / AWS | Delete test resources and terminate lab instances |
-
-Optional: [automated setup](docs/automation.md) replaces manual steps 3–11. Use one method only.
-
-
+```
 https://github.com/atulkamble/ec2-kubeadm
 
 amazon linux 
@@ -52,6 +29,7 @@ sudo kubeadm init \
   --pod-network-cidr=10.244.0.0/16 \
   --cri-socket=unix:///run/containerd/containerd.sock
 
+sudo su
 
 kubeadm join 172.31.29.239:6443 --token nq69s5.dbz69hr22pp2y9b2 \
 	--discovery-token-ca-cert-hash sha256:d42874d49f321eb709bb58e04d30156f668aab5cb084cc7863189183fa61864e 
@@ -60,5 +38,31 @@ kubeadm join 172.31.29.239:6443 --token nq69s5.dbz69hr22pp2y9b2 \
 NAME      STATUS   ROLES           AGE    VERSION
 server    Ready    control-plane   114s   v1.37.2
 worker1   Ready    <none>          14s    v1.37.2
+```
+
+# Quick execution checklist
+
+Follow [README.md](README.md) for commands. This checklist is a navigation aid, not a second installation guide.
+
+| Step | Where | Task |
+|---|---|---|
+| 1 | AWS Console | Create three EC2 instances, same VPC/subnet/SG and key pair |
+| 2 | Workstation | Connect to each instance |
+| 3 | All nodes | Assign unique hostnames |
+| 4 | All nodes | Prepare OS, swap and networking |
+| 5 | All nodes | Install compatible containerd |
+| 6 | All nodes | Install Kubernetes components and verify versions |
+| 7 | Server | Initialize control plane and configure kubectl |
+| 8 | Server | Install Flannel |
+| 9 | Server | Generate fresh join command |
+| 10 | Both workers | Execute generated join command with sudo |
+| 11 | Server | Verify three Ready nodes and system pods |
+| 12 | Server | Apply YAML manifests, verify rollout, test HTTP |
+| 13 | As needed | Troubleshoot |
+| 14 | Server / AWS | Delete test resources and terminate lab instances |
+
+Optional: [automated setup](docs/automation.md) replaces manual steps 3–11. Use one method only.
+
+
 worker2   Ready    <none>          8s     v1.37.2
 [ec2-user@ip-172-31-29-239 ~]$ 
