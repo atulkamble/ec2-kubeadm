@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo "Run with sudo"; exit 1; }
-# Fresh dedicated lab nodes only. Do not overwrite an existing runtime configuration.
+# Fresh dedicated lab nodes only; back up existing runtime configuration.
+[[ ! -f /etc/kubernetes/kubelet.conf ]] || { echo 'Node already joined; stop'; exit 1; }
 if ! command -v containerd >/dev/null; then dnf install -y containerd; fi
 version=$(containerd --version)
 echo "$version"
