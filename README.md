@@ -178,6 +178,19 @@ rpm -q kubeadm kubelet kubectl containerd
 
 The kubelet may repeatedly restart until the node has been initialized/joined. That is expected. Do not run `kubeadm init` on workers.
 
+### Verify installed versions — ALL NODES
+
+Run these commands on the server and both workers before initializing the cluster. Confirm matching Kubernetes versions and a compatible container runtime.
+
+```bash
+cat /etc/os-release
+containerd --version
+kubeadm version
+kubelet --version
+kubectl version --client
+rpm -q kubeadm kubelet kubectl containerd
+```
+
 ## 7. Initialize cluster — SERVER ONLY
 
 Check that `hostname -I` contains the server's correct VPC **private** IPv4 address. Set it explicitly:
