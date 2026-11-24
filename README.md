@@ -51,21 +51,30 @@ Hands-on lab: build a **three-node, self-managed Kubernetes cluster** with **1 c
 
 ## Architecture
 
-```text
-AWS VPC / same subnet / dedicated cluster security group
-  |
-  +-- server   (control plane, t3.large, 70 GiB)
-  |    kubeadm init / kube-apiserver / etcd / kubectl
-  |
-  +-- worker1  (worker, t3.medium, 50 GiB)
-  |    kubeadm join / kubelet / containerd
-  |
-  +-- worker2  (worker, t3.medium, 50 GiB)
-       kubeadm join / kubelet / containerd
-
-Pod network: Flannel (10.244.0.0/16)
-Node network: EC2 private IPv4 addresses
+```mermaid
+flowchart TD
+ U[Student - SSH] --> S
+ U --> W1
+ U --> W2
+ subgraph AWS[AWS VPC - same subnet and security group]
+ S[server - control plane]
+ W1[worker1 - application pods]
+ W2[worker2 - application pods]
+ W1 -->|Join via private IP :6443| S
+ W2 -->|Join via private IP :6443| S
+ W1 <-->|Flannel pod network| W2
+ end
 ```
+
+| Node | Instance | Disk | Role |
+|---|---|---|---|
+| server | t3.large | 70 GiB | Manage cluster |
+| worker1 | t3.medium | 50 GiB | Run applications |
+| worker2 | t3.medium | 50 GiB | Run applications |
+
+All nodes run Amazon Linux 2023, containerd and kubelet. Flannel connects pods using CIDR `10.244.0.0/16`.
+
+[View component, installation and application diagrams](docs/architecture.md).
 
 ## Version compatibility (reviewed 24 November 2026)
 
@@ -322,6 +331,15 @@ worker2   Ready    <none>          ...   v1.37.x
 Check `kubectl get nodes -o wide` to confirm each node has a **different private IP**.
 
 ## 12. Deploy and test applications — SERVER ONLY
+
+```mermaid
+flowchart LR
+ C[curl on server] --> P[kubectl port-forward :8080]
+ P --> S[nginx Service :80]
+ S --> N[One ready Nginx pod]
+```
+
+Port-forward selects a backing pod through the Service; it does not expose the application publicly.
 
 Use the provided YAML files for all application exercises. Do not create a second Deployment with the same name using imperative commands.
 
